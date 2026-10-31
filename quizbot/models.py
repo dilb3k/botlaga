@@ -7,6 +7,75 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    name: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
+    __table_args__ = (CheckConstraint("role IN ('user','admin','superadmin')"),)
+
+
+class Chat(Base):
+    __tablename__ = "chats"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    title: Mapped[str] = mapped_column(String(256))
+    kind: Mapped[str] = mapped_column(String(16))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ChatManager(Base):
+    __tablename__ = "chat_managers"
+    chat_id: Mapped[int] = mapped_column(
+        ForeignKey("chats.id", onupdate="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Question(Base):
+    __tablename__ = "questions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), index=True)
+    text: Mapped[str] = mapped_column(String(300))
+    correct: Mapped[int] = mapped_column(Integer)
+    explanation: Mapped[str] = mapped_column(String(200), default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    seed_key: Mapped[str | None] = mapped_column(String(80), unique=True)
+    __table_args__ = (CheckConstraint("correct BETWEEN 0 AND 3"),)
+
+
+class QuestionOption(Base):
+    __tablename__ = "question_options"
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(String(100))
+    __table_args__ = (CheckConstraint("position BETWEEN 0 AND 3"),)
+
+
+class QuizSession(Base):
+    __tablename__ = "quiz_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id", onupdate="CASCADE"), index=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
